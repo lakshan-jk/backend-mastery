@@ -7,24 +7,24 @@
 //   2. Socket.IO opens a persistent WebSocket connection per client
 //   3. When a client sends "message", the server handles it
 
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-app.use(express.static("public")); // serves public/index.html
+app.use(express.static('public')); // serves public/index.html
 
 // This fires every time a NEW client connects
-io.on("connection", (socket) => {
-  console.log("✅ a user connected:", socket.id);
+io.on('connection', (socket) => {
+  console.log('✅ a user connected:', socket.id);
 
   // MODULE 1 (done for you): echo the message back to the sender
-  socket.on("message", (text) => {
-    console.log("received:", text);
-    socket.emit("message", `echo: ${text}`); // send back only to this client
+  socket.on('message', (text) => {
+    console.log('received:', text);
+    socket.emit('message', `echo: ${text}`); // send back only to this client
   });
 
   // ----- MODULE 2 (your turn): broadcast to EVERYONE instead of echo -----
@@ -35,8 +35,8 @@ io.on("connection", (socket) => {
   // socket.on("join", (room) => { socket.join(room); ... });
   // io.to(room).emit("message", text);  // only people in that room
 
-  socket.on("disconnect", () => {
-    console.log("❌ a user disconnected:", socket.id);
+  socket.on('disconnect', () => {
+    console.log('❌ a user disconnected:', socket.id);
   });
 });
 
