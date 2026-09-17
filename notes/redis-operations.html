@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redis Operations Cheat Sheet</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 20px; color: #222; line-height: 1.5; }
+  h1 { color: #d82c20; border-bottom: 3px solid #d82c20; padding-bottom: 8px; }
+  h2 { color: #b31217; margin-top: 34px; background: #fff3f2; padding: 8px 12px; border-left: 4px solid #d82c20; border-radius: 4px; }
+  .note { background: #eef6ff; border-left: 4px solid #3b82f6; padding: 10px 14px; border-radius: 4px; margin: 14px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+  th { background: #fafafa; }
+  code { background: #f4f4f4; padding: 2px 6px; border-radius: 4px; font-family: Menlo, Consolas, monospace; font-size: 0.9em; color: #b31217; }
+  .cmd { white-space: nowrap; font-weight: 600; }
+  .tag { display:inline-block; background:#d82c20; color:#fff; font-size:0.7em; padding:2px 7px; border-radius:10px; margin-left:6px; }
+</style>
+</head>
+<body>
+
+<h1>🔴 Redis Operations Cheat Sheet</h1>
+<p>Redis is an <b>in-memory key-value store</b>. Every piece of data is stored under a <b>key</b> and retrieved by that key (O(1), instant). Below are the common operations, grouped by data type, with plain explanations.</p>
+
+<div class="note">💡 <b>Node (ioredis) note:</b> in code you call the lowercase method, e.g. <code>await redis.set("k","v")</code>, <code>await redis.get("k")</code>. The commands below are the raw Redis commands (same names).</div>
+
+<h2>1. Strings — basic key → value</h2>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">SET key value</td><td>Store a value under a key (overwrites if exists)</td><td><code>SET product:1 "Rug"</code></td></tr>
+<tr><td class="cmd">GET key</td><td>Get the value stored under a key (nil if missing)</td><td><code>GET product:1</code></td></tr>
+<tr><td class="cmd">DEL key</td><td>Delete a key (used for cache invalidation)</td><td><code>DEL product:1</code></td></tr>
+<tr><td class="cmd">EXISTS key</td><td>Check if a key exists (1 = yes, 0 = no)</td><td><code>EXISTS product:1</code></td></tr>
+<tr><td class="cmd">MSET / MGET</td><td>Set/get multiple keys at once</td><td><code>MGET k1 k2 k3</code></td></tr>
+</table>
+
+<h2>2. Expiry / TTL — auto-delete after time</h2>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">SET key val EX 30</td><td>Set a key that auto-expires in 30 seconds <span class="tag">caching</span></td><td><code>SET product:1 "Rug" EX 30</code></td></tr>
+<tr><td class="cmd">EXPIRE key 30</td><td>Add a 30-second expiry to an existing key</td><td><code>EXPIRE product:1 30</code></td></tr>
+<tr><td class="cmd">TTL key</td><td>How many seconds left before it expires (-1 = no expiry, -2 = gone)</td><td><code>TTL product:1</code></td></tr>
+<tr><td class="cmd">PERSIST key</td><td>Remove the expiry (make it permanent)</td><td><code>PERSIST product:1</code></td></tr>
+</table>
+
+<h2>3. Counters — atomic increment/decrement</h2>
+<div class="note">Great for rate limiting, view counts, IDs. These are <b>atomic</b> (safe even with many clients at once).</div>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">INCR key</td><td>Increase a number by 1</td><td><code>INCR views:page1</code></td></tr>
+<tr><td class="cmd">DECR key</td><td>Decrease a number by 1</td><td><code>DECR stock:1</code></td></tr>
+<tr><td class="cmd">INCRBY key 5</td><td>Increase by a given amount</td><td><code>INCRBY views:page1 5</code></td></tr>
+</table>
+
+<h2>4. Keys — finding keys</h2>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">KEYS pattern</td><td>List all matching keys — <b>⚠️ blocks Redis, avoid in prod!</b></td><td><code>KEYS product:*</code></td></tr>
+<tr><td class="cmd">SCAN cursor</td><td>List keys in small batches — <b>safe in prod</b> (use instead of KEYS)</td><td><code>SCAN 0 MATCH product:*</code></td></tr>
+<tr><td class="cmd">TYPE key</td><td>What data type is stored (string, hash, list...)</td><td><code>TYPE product:1</code></td></tr>
+</table>
+
+<h2>5. Hashes — store an object (field → value)</h2>
+<div class="note">Like a mini object/dictionary under one key. Good for storing a whole record (e.g. a user or product).</div>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">HSET key field val</td><td>Set a field in the hash</td><td><code>HSET user:5 name "Lakshan"</code></td></tr>
+<tr><td class="cmd">HGET key field</td><td>Get one field</td><td><code>HGET user:5 name</code></td></tr>
+<tr><td class="cmd">HGETALL key</td><td>Get all fields + values</td><td><code>HGETALL user:5</code></td></tr>
+<tr><td class="cmd">HDEL key field</td><td>Delete a field</td><td><code>HDEL user:5 name</code></td></tr>
+</table>
+
+<h2>6. Lists — ordered sequence (queues)</h2>
+<div class="note">Good for simple queues / recent-items. Push/pop from either end.</div>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">LPUSH / RPUSH</td><td>Add to the left / right end</td><td><code>RPUSH tasks "job1"</code></td></tr>
+<tr><td class="cmd">LPOP / RPOP</td><td>Remove + return from left / right end</td><td><code>LPOP tasks</code></td></tr>
+<tr><td class="cmd">LRANGE key 0 -1</td><td>Get a range (0 to -1 = all items)</td><td><code>LRANGE tasks 0 -1</code></td></tr>
+<tr><td class="cmd">LLEN key</td><td>Length of the list</td><td><code>LLEN tasks</code></td></tr>
+</table>
+
+<h2>7. Sets — unique unordered values</h2>
+<div class="note">No duplicates. Good for "seen" checks, tags, unique visitors.</div>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">SADD key val</td><td>Add a value (ignores duplicates)</td><td><code>SADD tags:1 "boho"</code></td></tr>
+<tr><td class="cmd">SMEMBERS key</td><td>Get all values</td><td><code>SMEMBERS tags:1</code></td></tr>
+<tr><td class="cmd">SISMEMBER key val</td><td>Is this value in the set? (1/0)</td><td><code>SISMEMBER tags:1 "boho"</code></td></tr>
+<tr><td class="cmd">SREM key val</td><td>Remove a value</td><td><code>SREM tags:1 "boho"</code></td></tr>
+</table>
+
+<h2>8. Sorted Sets — values ranked by a score</h2>
+<div class="note">Each value has a score; auto-sorted. Great for leaderboards, priority queues, rankings.</div>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">ZADD key score val</td><td>Add a value with a score</td><td><code>ZADD leaderboard 100 "user5"</code></td></tr>
+<tr><td class="cmd">ZRANGE key 0 -1</td><td>Get values sorted by score (low→high)</td><td><code>ZRANGE leaderboard 0 -1</code></td></tr>
+<tr><td class="cmd">ZREVRANGE key 0 2</td><td>Top N by score (high→low)</td><td><code>ZREVRANGE leaderboard 0 2</code></td></tr>
+</table>
+
+<h2>9. Pub/Sub — messaging between servers</h2>
+<div class="note">One publisher sends a message to a channel; all subscribers receive it. <b>Fire-and-forget</b> (not durable). Used as a WebSocket backplane.</div>
+<table>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+<tr><td class="cmd">PUBLISH channel msg</td><td>Send a message to a channel</td><td><code>PUBLISH chat:room1 "hi"</code></td></tr>
+<tr><td class="cmd">SUBSCRIBE channel</td><td>Listen to a channel for messages</td><td><code>SUBSCRIBE chat:room1</code></td></tr>
+</table>
+
+<h2>10. Server / utility</h2>
+<table>
+<tr><th>Command</th><th>What it does</th></tr>
+<tr><td class="cmd">FLUSHALL</td><td>Delete ALL data (⚠️ careful!)</td></tr>
+<tr><td class="cmd">INFO</td><td>Server stats (memory, clients, etc.)</td></tr>
+<tr><td class="cmd">DBSIZE</td><td>How many keys are stored</td></tr>
+<tr><td class="cmd">PING</td><td>Health check → replies "PONG"</td></tr>
+</table>
+
+<div class="note" style="background:#f0fdf4;border-left-color:#16a34a;">
+✅ <b>The 6 you'll use 90% of the time:</b> <code>SET</code>, <code>GET</code>, <code>DEL</code>, <code>EXPIRE</code>/<code>SET ... EX</code>, <code>EXISTS</code>, <code>INCR</code>. Everything else is situational.
+</div>
+
+<h2>Remember for interviews</h2>
+<ul>
+<li><b>Retrieve by KEY</b> (not by value) — O(1) hash-table lookup → that's why it's fast.</li>
+<li><b>TTL + DEL</b> = caching (auto-expire + invalidate on update).</li>
+<li><b>INCR</b> = atomic → rate limiting / counters.</li>
+<li><b>Avoid KEYS *</b> (single-threaded, blocks) → use <b>SCAN</b>.</li>
+<li><b>Pub/Sub</b> = messaging backplane (fire-and-forget, not durable).</li>
+</ul>
+
+</body>
+</html>
