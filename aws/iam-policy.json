@@ -1,0 +1,24 @@
+{
+  "Comment": "Least-privilege IAM policy for the S3 -> Lambda -> DynamoDB flow. The Lambda's execution role gets ONLY these permissions, nothing more.",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadUploadedObject",
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::uploads-bucket/*"
+    },
+    {
+      "Sid": "WriteFileMetadata",
+      "Effect": "Allow",
+      "Action": "dynamodb:PutItem",
+      "Resource": "arn:aws:dynamodb:ap-south-1:123456789012:table/files"
+    },
+    {
+      "Sid": "WriteLogs",
+      "Effect": "Allow",
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+      "Resource": "arn:aws:logs:*:*:*"
+    }
+  ]
+}
