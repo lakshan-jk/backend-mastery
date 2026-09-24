@@ -15,8 +15,8 @@ async function putItemIdempotent(item) {
   // mimics DynamoDB PutItem with ConditionExpression "attribute_not_exists(fileId)"
   // -> the write only succeeds if the row doesn't already exist
   if (db.has(item.fileId)) {
-    const err = new Error("ConditionalCheckFailedException");
-    err.name = "ConditionalCheckFailedException";
+    const err = new Error('ConditionalCheckFailedException');
+    err.name = 'ConditionalCheckFailedException';
     throw err;
   }
   db.set(item.fileId, item);
@@ -32,15 +32,15 @@ exports.handler = async (event) => {
     const fileId = decodeURIComponent(record.s3.object.key);
     const size = record.s3.object.size;
 
-    const item = { fileId, bucket, sizeBytes: size, processedAt: "2026-09-25" };
+    const item = { fileId, bucket, sizeBytes: size, processedAt: '2026-09-25' };
 
     try {
-      await putItemIdempotent(item);              // idempotent write
-      results.push({ fileId, status: "written" });
+      await putItemIdempotent(item); // idempotent write
+      results.push({ fileId, status: 'written' });
     } catch (e) {
-      if (e.name === "ConditionalCheckFailedException") {
+      if (e.name === 'ConditionalCheckFailedException') {
         // duplicate S3 event for a file we already processed -> safely skip
-        results.push({ fileId, status: "skipped (already processed)" });
+        results.push({ fileId, status: 'skipped (already processed)' });
       } else {
         throw e; // real error -> let Lambda retry
       }
@@ -53,12 +53,14 @@ exports.handler = async (event) => {
 // ================= local demo (mock S3 event, fired TWICE) =================
 if (require.main === module) {
   const mockEvent = {
-    Records: [{ s3: { bucket: { name: "uploads" }, object: { key: "invoice-123.txt", size: 42 } } }],
+    Records: [
+      { s3: { bucket: { name: 'uploads' }, object: { key: 'invoice-123.txt', size: 42 } } },
+    ],
   };
 
   (async () => {
-    console.log("1st event:", (await exports.handler(mockEvent)).processed);
-    console.log("2nd event (duplicate):", (await exports.handler(mockEvent)).processed);
-    console.log("\n→ DB rows:", [...db.keys()], "(only ONE, despite two events) ✅");
+    console.log('1st event:', (await exports.handler(mockEvent)).processed);
+    console.log('2nd event (duplicate):', (await exports.handler(mockEvent)).processed);
+    console.log('\n→ DB rows:', [...db.keys()], '(only ONE, despite two events) ✅');
   })();
 }
