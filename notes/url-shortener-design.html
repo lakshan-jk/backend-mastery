@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Shortener — System Design</title>
+<style>
+  :root{--bg:#f5f7fa;--panel:#fff;--ink:#1e293b;--muted:#64748b;--line:#e2e8f0;
+        --blue:#2563eb;--green:#059669;--amber:#d97706;--violet:#7c3aed;--cyan:#0891b2;--red:#dc2626;}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.55;}
+  .wrap{max-width:900px;margin:0 auto;padding:38px 24px 90px;}
+  h1{font-size:1.8rem;font-weight:800;letter-spacing:-.02em;margin:0 0 4px;}
+  .lede{color:var(--muted);margin:0 0 8px;}
+  .pill{display:inline-block;background:#eff6ff;color:var(--blue);font-size:.75rem;font-weight:700;
+        padding:3px 10px;border-radius:20px;margin:2px 6px 2px 0;}
+  h2{font-size:1.2rem;margin:34px 0 4px;display:flex;align-items:center;gap:10px;}
+  .n{font-size:.8rem;font-weight:700;color:#fff;background:var(--violet);width:26px;height:26px;border-radius:7px;
+     display:flex;align-items:center;justify-content:center;flex:none;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:12px;
+        box-shadow:0 1px 3px rgba(15,23,42,.04);}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:9px;padding:13px 15px;overflow-x:auto;
+      font-family:"SF Mono",Menlo,monospace;font-size:.82rem;line-height:1.6;margin:8px 0;}
+  .k{color:#7dd3fc}.c{color:#86efac}.m{color:#94a3b8}.y{color:#fcd34d}
+  table{border-collapse:collapse;width:100%;margin:8px 0;font-size:.86rem;}
+  th,td{border:1px solid var(--line);padding:7px 11px;text-align:left;}
+  th{background:#f8fafc;font-weight:700;}
+  .tag{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:10px;color:#fff;}
+  .g{background:var(--green)}.r{background:var(--red)}
+  .note{background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:10px 14px;font-size:.86rem;color:#92400e;margin-top:10px;}
+  .key{background:#f0fdf4;border-left:4px solid var(--green);border-radius:8px;padding:9px 13px;font-size:.86rem;margin-top:10px;}
+  code{background:#eef2f7;padding:1px 6px;border-radius:5px;font-family:"SF Mono",Menlo,monospace;font-size:.82em;color:#334155;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔗 URL Shortener — System Design</h1>
+  <p class="lede">Turn a long URL into a short code, and redirect clicks back to the original. Built + tested in <code>~/backend-mastery/url-shortener/</code>.</p>
+  <div>
+    <span class="pill">read-heavy</span><span class="pill">cache-aside</span>
+    <span class="pill">Redis INCR</span><span class="pill">counter + base62</span>
+  </div>
+
+  <!-- 1 -->
+  <h2><span class="n">1</span>What it does — 2 operations</h2>
+  <div class="card">
+    <pre><span class="c">SHORTEN</span> (write, rare):
+  POST /shorten { url: <span class="y">"https://example.com/bedsheet"</span> }
+  → { code: <span class="y">"5"</span>, shortUrl: <span class="y">"short.ly/5"</span> }
+
+<span class="c">REDIRECT</span> (read, VERY frequent):
+  GET /5  → look up "5" → <span class="k">302</span> redirect to https://example.com/bedsheet</pre>
+    <div class="key">🔑 <b>Key fact:</b> it's <b>read-heavy</b> — 1 person creates a link, thousands click it. This shapes the whole design (→ caching).</div>
+  </div>
+
+  <!-- 2 -->
+  <h2><span class="n">2</span>Generating the code — 2 options</h2>
+  <div class="card">
+    <p style="margin:0 0 6px"><b>The code is NOT made from the URL's letters.</b> The URL and code are separate — we just store a pairing (like a coat-check ticket → your coat).</p>
+    <table>
+      <tr><th>Option</th><th>How</th><th>Length</th><th>Collisions?</th></tr>
+      <tr><td><b>Random</b></td><td>pick 6 random chars from 0-9,a-z,A-Z</td><td>fixed 6 (~56B combos)</td><td><span class="tag r">possible → check DB</span></td></tr>
+      <tr><td><b>Counter + base62</b></td><td>give each link the next number, encode base62</td><td>grows (or pad)</td><td><span class="tag g">never ✅</span></td></tr>
+    </table>
+    <pre><span class="m"># Counter + base62 — concrete values</span>
+counter starts at 0
+URL #1  example.com/bedsheet  → counter <span class="k">1</span> → base62 <span class="y">"1"</span>  → short.ly/1
+URL #2  example.com/pillow    → counter <span class="k">2</span> → base62 <span class="y">"2"</span>  → short.ly/2
+URL #3  example.com/curtains  → counter <span class="k">3</span> → base62 <span class="y">"3"</span>  → short.ly/3
+...
+URL #1,000,000               → counter <span class="k">1000000</span> → base62 <span class="y">"4c92"</span>  <span class="m"># 7 digits → 4 chars</span></pre>
+    <div class="note">⚙️ <b>base62</b> = writing a number with 62 symbols (0-9, a-z, A-Z) instead of 10 — like an odometer with 62 per wheel. More symbols → shorter code for big numbers. Want fixed 6 chars? Pad with zeros, or start the counter high.</div>
+    <div class="key">🔑 <b>Why counter wins:</b> counting up never repeats → no collisions, no DB checks. Random needs a "is it taken?" check every time.</div>
+  </div>
+
+  <!-- 3 -->
+  <h2><span class="n">3</span>Scaling reads — cache-aside (Redis)</h2>
+  <div class="card">
+    <p style="margin:0 0 6px">Every click looking up the DB = the DB doing the <b>same lookup</b> thousands of times. Put Redis in front.</p>
+    <pre>click short.ly/5
+   │
+   ▼
+Check Redis  <span class="c">──HIT──►</span>  redirect ⚡ (~2ms)
+   │
+  MISS
+   ▼
+Look up DB  →  <span class="k">store in Redis + TTL</span>  →  redirect
+next click = HIT</pre>
+    <table>
+      <tr><th></th><th>Before</th><th>After caching</th></tr>
+      <tr><td>50,000 clicks</td><td>50,000 DB hits 😰</td><td>1 DB hit + 49,999 Redis hits ⚡</td></tr>
+    </table>
+    <div class="key">🔑 Same <b>cache-aside</b> pattern as products — the code→URL mapping barely changes, so it caches perfectly.</div>
+  </div>
+
+  <!-- 4 -->
+  <h2><span class="n">4</span>Counting clicks (without hitting the DB)</h2>
+  <div class="card">
+    <p style="margin:0 0 6px"><b>The tension:</b> if reads are served by Redis, how do we count clicks (which need the DB)? Answer: count in Redis, save to DB later.</p>
+    <pre>on each click:  <span class="k">INCR</span> clicks:5        <span class="m"># +1 in Redis (fast, in-memory)</span>
+
+every 10s (background job):
+  read Redis counters → <span class="k">batch-write</span> totals to DB → reset
+  <span class="m"># 4,000 clicks = ONE DB write, not 4,000</span></pre>
+    <div class="note">⚖️ <b>Trade-off:</b> stats are slightly delayed (~10-30s) and a crash could lose a few counts. For click analytics that's fine — <b>speed &gt; perfect accuracy</b>.</div>
+    <div class="key">🔑 Proven in <code>server-cached.js</code>: clicked 4× → <code>pendingInRedis:4, dbClicks:0</code> → after flush → <code>dbClicks:4, pendingInRedis:0</code>.</div>
+  </div>
+
+  <!-- 5 -->
+  <h2><span class="n">5</span>Full architecture</h2>
+  <div class="card">
+    <pre>[ Client ]
+    │  POST /shorten  |  GET /:code
+    ▼
+[ API server(s) ]  ──(behind a load balancer when scaled)
+    │
+    ├─► [ Redis ]     hot code→URL cache (cache-aside) + click counters (INCR)
+    │
+    └─► [ Database ]  source of truth: code → URL, click totals
+                      (background job flushes Redis counts here every ~10s)</pre>
+    <div class="key">🗣️ <b>Interview delivery:</b> "It's read-heavy, so the core is <b>cache-aside on Redis</b>. Codes come from a <b>counter + base62</b> so they never collide. Clicks are counted in Redis with <b>INCR</b> and batch-flushed to the DB, trading a little accuracy for speed."</div>
+  </div>
+
+</div>
+</body>
+</html>

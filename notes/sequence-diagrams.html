@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backend Patterns — Sequence Diagrams</title>
+<style>
+  :root{--bg:#f5f7fa;--panel:#fff;--ink:#1e293b;--muted:#64748b;--line:#cbd5e1;
+        --slate:#94a3b8;--green:#059669;--red:#dc2626;--violet:#7c3aed;}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);
+       color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:920px;margin:0 auto;padding:40px 24px 100px;}
+  h1{font-size:1.85rem;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;}
+  .lede{color:var(--muted);max-width:640px;margin:0 0 6px;}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin:14px 0 0;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;}
+  .swatch{width:22px;height:2px;border-radius:2px;} .swatch.g{background:var(--green)}
+  .swatch.r{background:var(--red)} .swatch.v{background:var(--violet)}
+
+  section{margin-top:38px;background:var(--panel);border:1px solid #e2e8f0;border-radius:16px;
+          padding:22px 24px 20px;box-shadow:0 1px 3px rgba(15,23,42,.05);}
+  .sec-head{display:flex;align-items:center;gap:12px;margin-bottom:2px;}
+  .sec-num{font-size:.8rem;font-weight:700;color:#fff;background:var(--violet);width:26px;height:26px;
+           border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none;}
+  h2{font-size:1.15rem;font-weight:700;margin:0;letter-spacing:-.01em;}
+  .sec-sub{color:var(--muted);font-size:.88rem;margin:2px 0 14px 38px;}
+
+  .seq{display:grid;grid-auto-rows:46px;position:relative;padding:4px 2px 8px;
+       grid-template-columns:repeat(var(--cols),1fr);}
+  .actor{grid-row:1;align-self:center;justify-self:center;background:#0f172a;color:#fff;
+          font-size:.76rem;font-weight:600;padding:6px 13px;border-radius:8px;white-space:nowrap;}
+  .ll{grid-row:2 / -1;justify-self:center;width:0;border-left:2px dashed var(--line);}
+
+  .msg{--c:var(--slate);align-self:center;position:relative;display:flex;align-items:center;
+       margin-left:var(--half);margin-right:var(--half);height:12px;}
+  .msg.ok{--c:var(--green)} .msg.err{--c:var(--red)} .msg.hl{--c:var(--violet)}
+  .msg .line{flex:1;height:2px;background:var(--c);border-radius:2px;}
+  .msg .head{width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;}
+  .msg.right .line{order:1}.msg.right .head{order:2;border-left:8px solid var(--c);}
+  .msg.left .head{order:1;border-right:8px solid var(--c);}.msg.left .line{order:2}
+  .msg.dashed .line{background:none;border-top:2px dashed var(--c);height:0;}
+  .cap{position:absolute;left:0;right:0;top:-15px;text-align:center;font-size:.75rem;
+       color:#475569;font-weight:500;}
+
+  .note{align-self:center;justify-self:stretch;margin:0 5%;font-size:.75rem;text-align:center;
+        padding:5px 9px;border-radius:8px;font-weight:500;line-height:1.35;}
+  .note.warn{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;}
+  .note.info{background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9;}
+  .note.good{background:#ecfdf5;border:1px solid #a7f3d0;color:#047857;}
+  .note.plain{background:#f8fafc;border:1px dashed #cbd5e1;color:#64748b;font-style:italic;}
+
+  .fix{margin-top:16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+       padding:10px 14px;font-size:.85rem;color:#1e3a8a;}
+  .fix b{color:#1d4ed8;} code{background:#eef2f7;padding:1px 6px;border-radius:5px;
+       font-family:"SF Mono",Menlo,monospace;font-size:.82em;color:#334155;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Backend Patterns — Sequence Diagrams</h1>
+  <p class="lede">How each request actually flows between services, message by message. Green = success, red = failure/rejection, purple = the critical step.</p>
+  <div class="legend">
+    <span><i class="swatch g"></i> success</span>
+    <span><i class="swatch r"></i> failure / reject</span>
+    <span><i class="swatch v"></i> key step</span>
+  </div>
+
+  <!-- 1. CACHE HIT -->
+  <section>
+    <div class="sec-head"><span class="sec-num">1</span><h2>Caching — Cache HIT</h2></div>
+    <p class="sec-sub">The fast path: the value is already in Redis.</p>
+    <div class="seq" style="--cols:3;--half:16.66%;">
+      <div class="actor" style="grid-column:1">Client</div>
+      <div class="actor" style="grid-column:2">API</div>
+      <div class="actor" style="grid-column:3">Redis</div>
+      <div class="ll" style="grid-column:1"></div>
+      <div class="ll" style="grid-column:2"></div>
+      <div class="ll" style="grid-column:3"></div>
+      <div class="msg right"     style="grid-row:2;grid-column:1/3"><span class="cap">GET /product/5</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg right"     style="grid-row:3;grid-column:2/4"><span class="cap">GET product:5</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg left ok"   style="grid-row:4;grid-column:2/4"><span class="cap">value — HIT</span><span class="head"></span><span class="line"></span></div>
+      <div class="msg left ok"   style="grid-row:5;grid-column:1/3"><span class="cap">200 · ~2 ms ⚡</span><span class="head"></span><span class="line"></span></div>
+    </div>
+  </section>
+
+  <!-- 2. CACHE MISS -->
+  <section>
+    <div class="sec-head"><span class="sec-num">2</span><h2>Caching — Cache MISS + backfill</h2></div>
+    <p class="sec-sub">Miss → query the DB → write back to Redis so the next read is a hit.</p>
+    <div class="seq" style="--cols:4;--half:12.5%;">
+      <div class="actor" style="grid-column:1">Client</div>
+      <div class="actor" style="grid-column:2">API</div>
+      <div class="actor" style="grid-column:3">Redis</div>
+      <div class="actor" style="grid-column:4">DB</div>
+      <div class="ll" style="grid-column:1"></div><div class="ll" style="grid-column:2"></div>
+      <div class="ll" style="grid-column:3"></div><div class="ll" style="grid-column:4"></div>
+      <div class="msg right"    style="grid-row:2;grid-column:1/3"><span class="cap">GET /product/5</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg right"    style="grid-row:3;grid-column:2/4"><span class="cap">GET product:5</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg left err" style="grid-row:4;grid-column:2/4"><span class="cap">nil — MISS</span><span class="head"></span><span class="line"></span></div>
+      <div class="msg right"    style="grid-row:5;grid-column:2/5"><span class="cap">SELECT * FROM products</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg left"     style="grid-row:6;grid-column:2/5"><span class="cap">row · ~2000 ms 🐢</span><span class="head"></span><span class="line"></span></div>
+      <div class="msg right hl" style="grid-row:7;grid-column:2/4"><span class="cap">SET product:5 + TTL</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg left ok"  style="grid-row:8;grid-column:1/3"><span class="cap">200 (next read = HIT)</span><span class="head"></span><span class="line"></span></div>
+    </div>
+    <div class="fix"><b>Key step (purple):</b> backfill Redis with a <b>TTL</b> on the miss — without it every request keeps paying the 2000 ms DB cost.</div>
+  </section>
+
+  <!-- 3. IDEMPOTENCY -->
+  <section>
+    <div class="sec-head"><span class="sec-num">3</span><h2>Idempotency — Payments</h2></div>
+    <p class="sec-sub">Same <code>order_id</code> on every retry; an atomic claim ensures exactly one charge.</p>
+    <div class="seq" style="--cols:4;--half:12.5%;">
+      <div class="actor" style="grid-column:1">Client</div>
+      <div class="actor" style="grid-column:2">API</div>
+      <div class="actor" style="grid-column:3">Store</div>
+      <div class="actor" style="grid-column:4">PSP</div>
+      <div class="ll" style="grid-column:1"></div><div class="ll" style="grid-column:2"></div>
+      <div class="ll" style="grid-column:3"></div><div class="ll" style="grid-column:4"></div>
+      <div class="msg right"    style="grid-row:2;grid-column:1/3"><span class="cap">POST /pay (order_id=X)</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg right hl" style="grid-row:3;grid-column:2/4"><span class="cap">claim — SET X NX</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg left ok"  style="grid-row:4;grid-column:2/4"><span class="cap">acquired ✓</span><span class="head"></span><span class="line"></span></div>
+      <div class="msg right"    style="grid-row:5;grid-column:2/5"><span class="cap">charge ₹5000</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg left ok"  style="grid-row:6;grid-column:2/5"><span class="cap">charged once ✓</span><span class="head"></span><span class="line"></span></div>
+      <div class="msg left ok"  style="grid-row:7;grid-column:1/3"><span class="cap">200</span><span class="head"></span><span class="line"></span></div>
+      <div class="note plain" style="grid-row:8;grid-column:1/5">— impatient re-click / duplicate webhook arrives · same order_id=X —</div>
+      <div class="msg right"    style="grid-row:9;grid-column:1/3"><span class="cap">POST /pay (order_id=X)</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg right"    style="grid-row:10;grid-column:2/4"><span class="cap">claim — SET X NX</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg left err" style="grid-row:11;grid-column:2/4"><span class="cap">exists ✗ (no charge)</span><span class="head"></span><span class="line"></span></div>
+      <div class="msg left ok"  style="grid-row:12;grid-column:1/3"><span class="cap">200 · saved result (replay)</span><span class="head"></span><span class="line"></span></div>
+    </div>
+    <div class="fix"><b>Atomic claim</b> (<code>SET NX</code> / DB unique constraint) means only the first request reaches the PSP; duplicates get the stored result. Proven: 5 concurrent → 1 charge.</div>
+  </section>
+
+  <!-- 4. RBAC / IDOR -->
+  <section>
+    <div class="sec-head"><span class="sec-num">4</span><h2>Authorization — RBAC + Ownership (IDOR blocked)</h2></div>
+    <p class="sec-sub">Role check passes, but the ownership check stops vendorA reading vendorB's settlement.</p>
+    <div class="seq" style="--cols:3;--half:16.66%;">
+      <div class="actor" style="grid-column:1">Client (vendorA)</div>
+      <div class="actor" style="grid-column:2">API</div>
+      <div class="actor" style="grid-column:3">DB</div>
+      <div class="ll" style="grid-column:1"></div><div class="ll" style="grid-column:2"></div><div class="ll" style="grid-column:3"></div>
+      <div class="msg right"  style="grid-row:2;grid-column:1/3"><span class="cap">GET /settlements/s2</span><span class="line"></span><span class="head"></span></div>
+      <div class="note info"  style="grid-row:3;grid-column:2/3">authorize("settlement:view-own") ✓ role ok</div>
+      <div class="msg right"  style="grid-row:4;grid-column:2/4"><span class="cap">fetch s2</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg left"   style="grid-row:5;grid-column:2/4"><span class="cap">s2 { vendorId: vendorB }</span><span class="head"></span><span class="line"></span></div>
+      <div class="note warn"  style="grid-row:6;grid-column:2/3">ownership: s2.vendorId ≠ vendorA ✗</div>
+      <div class="msg left ok" style="grid-row:7;grid-column:1/3"><span class="cap">403 — not your settlement 🔒</span><span class="head"></span><span class="line"></span></div>
+    </div>
+    <div class="fix"><b>Two gates:</b> the <b>role</b> allows the action; the <b>ownership check</b> confines you to your own rows. Skipping the second = IDOR (change the ID in the URL → see another vendor's money).</div>
+  </section>
+
+  <!-- 5. LOST UPDATES -->
+  <section>
+    <div class="sec-head"><span class="sec-num">5</span><h2>Lost Updates — Retries · DLQ · Reconciliation</h2></div>
+    <p class="sec-sub">A failed write is retried, parked in a dead-letter queue, then caught by reconciliation.</p>
+    <div class="seq" style="--cols:4;--half:12.5%;">
+      <div class="actor" style="grid-column:1">Marketplace</div>
+      <div class="actor" style="grid-column:2">Queue</div>
+      <div class="actor" style="grid-column:3">Worker</div>
+      <div class="actor" style="grid-column:4">DB</div>
+      <div class="ll" style="grid-column:1"></div><div class="ll" style="grid-column:2"></div>
+      <div class="ll" style="grid-column:3"></div><div class="ll" style="grid-column:4"></div>
+      <div class="msg right"    style="grid-row:2;grid-column:1/3"><span class="cap">order event</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg right"    style="grid-row:3;grid-column:2/4"><span class="cap">deliver</span><span class="line"></span><span class="head"></span></div>
+      <div class="msg right err" style="grid-row:4;grid-column:3/5"><span class="cap">write fails ✗</span><span class="line"></span><span class="head"></span></div>
+      <div class="note info"    style="grid-row:5;grid-column:2/4">retry with backoff × 3</div>
+      <div class="msg right err" style="grid-row:6;grid-column:2/4"><span class="cap">still failing → dead-letter queue + alert</span><span class="line"></span><span class="head"></span></div>
+      <div class="note good"    style="grid-row:7;grid-column:1/5">Reconciliation job runs periodically → compares DB vs Marketplace → pulls any missed orders ✓</div>
+    </div>
+    <div class="fix"><b>Layered safety:</b> <b>retries + backoff</b> → <b>dead-letter queue</b> (failures never vanish) → periodic <b>reconciliation</b> that re-syncs anything still missed.</div>
+  </section>
+
+</div>
+</body>
+</html>

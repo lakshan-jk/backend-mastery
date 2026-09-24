@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kubernetes + System Design Skeleton</title>
+<style>
+  :root{--bg:#f5f7fa;--panel:#fff;--ink:#1e293b;--muted:#64748b;--line:#e2e8f0;
+        --blue:#2563eb;--green:#059669;--amber:#d97706;--violet:#7c3aed;--cyan:#0891b2;--red:#dc2626;}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.55;}
+  .wrap{max-width:900px;margin:0 auto;padding:38px 24px 90px;}
+  h1{font-size:1.8rem;font-weight:800;letter-spacing:-.02em;margin:0 0 4px;}
+  .lede{color:var(--muted);margin:0 0 8px;}
+  h2{font-size:1.2rem;margin:34px 0 4px;display:flex;align-items:center;gap:10px;}
+  .n{font-size:.8rem;font-weight:700;color:#fff;background:var(--violet);width:26px;height:26px;border-radius:7px;
+     display:flex;align-items:center;justify-content:center;flex:none;}
+  h3{font-size:1rem;margin:18px 0 4px;color:var(--blue);}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:12px;
+        box-shadow:0 1px 3px rgba(15,23,42,.04);}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:9px;padding:13px 15px;overflow-x:auto;
+      font-family:"SF Mono",Menlo,monospace;font-size:.82rem;line-height:1.6;margin:8px 0;}
+  .k{color:#7dd3fc}.c{color:#86efac}.m{color:#94a3b8}.y{color:#fcd34d}
+  table{border-collapse:collapse;width:100%;margin:8px 0;font-size:.85rem;}
+  th,td{border:1px solid var(--line);padding:7px 11px;text-align:left;vertical-align:top;}
+  th{background:#f8fafc;font-weight:700;}
+  .key{background:#f0fdf4;border-left:4px solid var(--green);border-radius:8px;padding:9px 13px;font-size:.86rem;margin-top:10px;}
+  .note{background:#fffbeb;border:1px solid #fde68a;border-radius:9px;padding:9px 13px;font-size:.86rem;color:#92400e;margin-top:10px;}
+  code{background:#eef2f7;padding:1px 6px;border-radius:5px;font-family:"SF Mono",Menlo,monospace;font-size:.82em;color:#334155;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>☸️ Kubernetes + 🏗️ System Design Skeleton</h1>
+  <p class="lede">The two deep-dives from Sunday: how k8s runs/scales/logs your app, and the universal template to draw any system design.</p>
+
+  <!-- ===================== KUBERNETES ===================== -->
+  <h2><span class="n">1</span>Kubernetes (k8s)</h2>
+
+  <div class="card">
+    <h3>What is kubectl?</h3>
+    <p style="margin:0"><code>kubectl</code> = the CLI "remote control" for Kubernetes. You type <code>kubectl &lt;command&gt;</code> to inspect or control your cluster.</p>
+    <pre><span class="k">kubectl</span> get pods              <span class="m"># list pods</span>
+<span class="k">kubectl</span> logs &lt;pod&gt;             <span class="m"># one pod's logs</span>
+<span class="k">kubectl</span> logs &lt;pod&gt; -f          <span class="m"># -f = follow = live stream (like tail -f)</span>
+<span class="k">kubectl</span> logs -l app=order-api  <span class="m"># ALL pods with that label at once</span></pre>
+  </div>
+
+  <div class="card">
+    <h3>Why multiple pods?</h3>
+    <table>
+      <tr><td><b>Capacity</b></td><td>3 pods ≈ 3× the traffic one can handle</td></tr>
+      <tr><td><b>Survive failure</b></td><td>one pod dies → others keep serving (no outage)</td></tr>
+      <tr><td><b>Zero-downtime deploys</b></td><td>update one while others serve (rolling)</td></tr>
+    </table>
+    <p style="margin:6px 0 0"><span class="m">A "pod" = a running copy of your app. Names get a random suffix:</span> <code>order-api-7d9f</code>, <code>order-api-2k1p</code>…</p>
+  </div>
+
+  <div class="card">
+    <h3>⚠️ The logging insight (you reasoned this out)</h3>
+    <p style="margin:0 0 6px">A request only lands in <b>one</b> pod — and you <b>can't predict which</b> (the load balancer spreads them). So <code>kubectl logs pod-1</code> may not have order 777; it's in some other pod.</p>
+    <pre>order 777 → LB → <span class="y">???</span> → any of the 4 pods
+you check   →      pod-1        → empty (wrong pod)</pre>
+    <div class="key">🔑 <b>That's WHY centralized logging (ELK) exists:</b> all pods ship logs to one place → you search <code>orderId:777</code> <b>once</b>, found no matter which pod. Bonus: ELK keeps logs even after a pod restarts (<code>kubectl logs</code> loses them).</div>
+    <div class="note">Without ELK: <code>kubectl logs -l app=order-api | grep 777</code> searches all pods at once — but history is lost when pods restart.</div>
+  </div>
+
+  <div class="card">
+    <h3>Load balancing IN Kubernetes (3 layers)</h3>
+    <pre>Internet
+   │
+[ <span class="c">Ingress</span> ]   L7 router: /api → svc A, /images → svc B, + SSL
+   │
+[ <span class="c">Service</span> ]   built-in L4 load balancer across pods (round-robin)
+   │
+[Pod1][Pod2][Pod3]   your app replicas</pre>
+    <table>
+      <tr><th>Piece</th><th>Job</th></tr>
+      <tr><td><b>Service</b></td><td>Auto load-balances across pods. <code>type: LoadBalancer</code> on AWS → provisions a real ALB. Types: ClusterIP (internal), NodePort, LoadBalancer.</td></tr>
+      <tr><td><b>Ingress</b></td><td>HTTP path/host routing + SSL (needs an Ingress Controller: Nginx / Traefik / ALB).</td></tr>
+      <tr><td><b>kube-proxy</b></td><td>The invisible engine that actually distributes traffic to pods (iptables/IPVS).</td></tr>
+    </table>
+    <div class="key">🔑 In k8s you don't set up a LB manually — a <b>Service</b> gives it to you. <b>Readiness probes</b> (<code>/health</code>) ensure traffic only hits ready pods → same idea as zero-downtime.</div>
+  </div>
+
+  <div class="card">
+    <h3>🗣️ Interview one-liner (k8s)</h3>
+    <p style="margin:0"><i>"Each app box runs as pods; a <b>Service</b> load-balances across them (round-robin via kube-proxy), and readiness probes ensure only ready pods get traffic. <b>Ingress</b> handles HTTP routing + SSL. On AWS a <code>type: LoadBalancer</code> Service provisions an ALB. For logs I don't chase pods — all ship to <b>ELK</b> and I search by orderId."</i></p>
+  </div>
+
+  <!-- ===================== SYSTEM DESIGN SKELETON ===================== -->
+  <h2><span class="n">2</span>System Design — Universal Skeleton</h2>
+
+  <div class="card">
+    <h3>The one spine behind ~90% of questions</h3>
+    <pre>   [ Client ]
+       │
+   [ <span class="c">Load Balancer</span> ]     spreads traffic, enables scaling
+       │
+   [ API / App servers ]  your logic (multiple instances)
+       │
+   ┌───┴────┬─────────┐
+[<span class="c">Cache</span>]  [<span class="c">Queue</span>]   [<span class="c">Database</span>]
+ Redis   Kafka/SQS  Postgres
+ fast    async      source
+ reads   work       of truth
+
++ side systems: [Workers] [CDN/Blob store (S3)] [Observability]</pre>
+    <div class="key">🔑 Memorize this ONE skeleton → customize it for any prompt. Every system = this spine with different emphasis.</div>
+  </div>
+
+  <div class="card">
+    <h3>The draw-order (so you never freeze)</h3>
+    <pre>1. Client(s)          who's using it?
+2. Entry point        Load Balancer → API
+3. Where's the data?  Database (source of truth)
+4. Make reads fast    Cache (Redis) in front of DB
+5. Make writes async  Queue + Workers (if heavy/spiky)
+6. Side systems       CDN, blob store, observability
+7. Annotate hard parts  idempotency, consistency, scaling</pre>
+    <p style="margin:6px 0 0"><b>3 questions that pick your boxes:</b> Read-heavy or write-heavy? · Real-time (WebSocket) or not? · What can go wrong (duplicates/scale/failures)?</p>
+  </div>
+
+  <div class="card">
+    <h3>Same skeleton, different prompts</h3>
+    <table>
+      <tr><th>Prompt</th><th>Emphasis</th></tr>
+      <tr><td>URL shortener</td><td>read-heavy → cache; counter+base62 codes</td></tr>
+      <tr><td>Rate limiter</td><td>Redis counter per user (INCR + TTL)</td></tr>
+      <tr><td>Chat app</td><td>WebSocket + Redis pub/sub + DB history</td></tr>
+      <tr><td>Order-sync</td><td>queue + workers + idempotency + reconciliation</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Load Balancer — what / why / which / how</h3>
+    <table>
+      <tr><td><b>What</b></td><td>sits in front of app servers, spreads requests, health-checks them, one entry point</td></tr>
+      <tr><td><b>Why</b></td><td>needed the moment you have &gt;1 instance → scaling + high availability + zero-downtime</td></tr>
+      <tr><td><b>Which</b></td><td>AWS <b>ALB</b> (L7, routes by path/header) ⭐ · NLB (L4, raw speed) · Nginx/HAProxy (self-host) · k8s Service/Ingress</td></tr>
+      <tr><td><b>How</b></td><td>configure (not code): algorithm (round-robin / least-conn / ip-hash), health check <code>/health</code>, target group, SSL termination. Keep sessions in Redis so no sticky sessions.</td></tr>
+    </table>
+    <div class="key">🗣️ <i>"A load balancer spreads traffic across instances, health-checks them, gives one entry point — it's what lets me scale horizontally and deploy zero-downtime. On AWS: an ALB with round-robin, a /health check, SSL termination, and an auto-updating target group. Sessions live in Redis so I don't need sticky sessions."</i></div>
+  </div>
+
+</div>
+</body>
+</html>

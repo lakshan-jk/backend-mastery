@@ -1,0 +1,36 @@
+name: CI
+
+# WHEN this runs
+on:
+  push:
+    branches: [main]          # deploy-style run only on main
+  pull_request:               # tests run on every PR too
+
+jobs:
+  # ---------- JOB 1: run the coding-warmup smoke tests ----------
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run coding warm-up tests
+        run: |
+          node interview-practice/coding-warmup.js
+          node interview-practice/coding-warmup-2.js
+          node interview-practice/coding-warmup-3.js
+          node interview-practice/coding-warmup-4.js
+
+  # ---------- JOB 2: "deploy" (only if tests passed, only on main) ----------
+  deploy:
+    needs: test                              # waits for test job to pass
+    if: github.ref == 'refs/heads/main'      # only on the main branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy (placeholder)
+        run: echo "✅ tests passed — this is where the real deploy would run"

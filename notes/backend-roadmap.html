@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backend Mastery Roadmap</title>
+<style>
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; max-width:820px; margin:0 auto;
+         padding:24px 18px 80px; background:#f8fafc; color:#1e293b; line-height:1.5; }
+  h1 { color:#0ea5e9; border-bottom:3px solid #0ea5e9; padding-bottom:8px; }
+  .legend { font-size:.85em; color:#64748b; margin-bottom:16px; }
+  details { background:#fff; border:1px solid #e2e8f0; border-radius:10px; margin:10px 0; overflow:hidden; }
+  summary { cursor:pointer; padding:13px 16px; font-weight:700; color:#0369a1; list-style:none;
+            display:flex; justify-content:space-between; align-items:center; }
+  summary::-webkit-details-marker{display:none;}
+  summary::after{content:"+";color:#0ea5e9;font-size:1.3em;}
+  details[open] summary::after{content:"–";}
+  summary:hover{background:#f0f9ff;}
+  .body{padding:4px 18px 16px;}
+  ul{margin:6px 0;padding-left:22px;} li{margin:5px 0;}
+  .done{color:#16a34a;} .todo{color:#ea580c;} .core{color:#7c3aed;font-weight:600;}
+  code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-family:Menlo,monospace;font-size:.85em;color:#0369a1;}
+  .num{display:inline-block;background:#0ea5e9;color:#fff;width:24px;height:24px;border-radius:50%;
+       text-align:center;line-height:24px;margin-right:8px;font-size:.85em;}
+  .tag{font-size:.72em;padding:1px 7px;border-radius:10px;margin-left:6px;color:#fff;}
+  .t-done{background:#16a34a;} .t-todo{background:#ea580c;}
+  .tip{background:#fef9c3;border-left:4px solid #eab308;padding:10px 14px;border-radius:6px;margin:14px 0;font-size:.9em;}
+</style>
+</head>
+<body>
+
+<h1>🖥️ Backend Mastery Roadmap</h1>
+<p class="legend">✅ = done (with hands-on/GitHub proof) · ⬜ = to learn · Follow the order — each builds on the last.</p>
+
+<div class="tip">💡 A practical map of the backend landscape — core topics through to advanced, each with runnable proof in this repo.</div>
+
+<details open><summary><span class="num">1</span>Fundamentals <span class="tag t-done">mostly done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ HTTP methods (GET/POST/PUT/DELETE), status codes (200/201/400/404/500)</li>
+<li class="done">✅ REST APIs — routes, request/response, middleware (built the CRUD API)</li>
+<li class="done">✅ JSON, req.body, req.params, req.headers</li>
+<li class="todo">⬜ Node.js internals: event loop, non-blocking I/O, streams, EventEmitter</li>
+<li class="todo">⬜ Error handling & validation middleware</li>
+</ul></div></details>
+
+<details><summary><span class="num">2</span>Databases <span class="tag t-done">mostly done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ SQL vs NoSQL (when each)</li>
+<li class="done">✅ Indexes (B-tree, speed reads, trade-off)</li>
+<li class="done">✅ MongoDB: documents, embed vs reference</li>
+<li class="done">✅ N+1 problem + fix (JOIN / IN / populate)</li>
+<li class="todo">⬜ Transactions & ACID</li>
+<li class="todo">⬜ Read replicas / connection pooling</li>
+<li class="todo">⬜ Query optimization (EXPLAIN)</li>
+</ul></div></details>
+
+<details><summary><span class="num">3</span>Caching <span class="tag t-done">done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ Why cache (RAM vs disk, O(1) lookup)</li>
+<li class="done">✅ Cache-aside pattern, TTL, invalidation (built it)</li>
+<li class="done">✅ Graceful fallback (Redis down → DB)</li>
+<li class="done">✅ Redis failure modes (memory, blocking, HA)</li>
+<li class="core">★ Redis: cache-aside, TTL, invalidation, failure modes</li>
+</ul></div></details>
+
+<details><summary><span class="num">4</span>Async & Queues <span class="tag t-done">mostly done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ Why a queue (async, decouple, absorb spikes)</li>
+<li class="done">✅ Idempotency (built it — no double-charge)</li>
+<li class="done">✅ Retries + dead-letter queue concept</li>
+<li class="todo">⬜ Kafka basics (producer/topic/partition/consumer group)</li>
+<li class="todo">⬜ BullMQ hands-on (a real worker)</li>
+</ul></div></details>
+
+<details><summary><span class="num">5</span>Real-time <span class="tag t-done">done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ WebSocket, Socket.IO (built a real-time app)</li>
+<li class="done">✅ Cross-server (Redis Pub/Sub backplane)</li>
+<li class="todo">⬜ Rooms, presence, reconnection (deepen)</li>
+</ul></div></details>
+
+<details><summary><span class="num">6</span>Scaling & Reliability <span class="tag t-done">mostly done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ Horizontal scaling, load balancing</li>
+<li class="done">✅ Zero-downtime deployment (built PM2 demo)</li>
+<li class="done">✅ Feature flags (deploy ≠ release)</li>
+<li class="done">✅ Data consistency (duplicates/out-of-order/lost)</li>
+<li class="todo">⬜ Rate limiting (deepen — you have a basic one)</li>
+<li class="todo">⬜ Circuit breaker pattern</li>
+</ul></div></details>
+
+<details><summary><span class="num">7</span>DevOps <span class="tag t-done">in progress</span></summary>
+<div class="body"><ul>
+<li class="done">✅ Docker (hands-on)</li>
+<li class="done">✅ CI/CD concepts + zero-downtime strategies</li>
+<li class="todo">⬜ Kubernetes hands-on (enable in Docker Desktop → real rolling deploy)</li>
+<li class="todo">⬜ Infrastructure as Code (Terraform — concept)</li>
+</ul></div></details>
+
+<details><summary><span class="num">8</span>Cloud (AWS) <span class="tag t-done">mostly done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ S3, DynamoDB, Lambda (S3→DynamoDB pattern, built with LocalStack)</li>
+<li class="done">✅ Event-driven, idempotency in the cloud</li>
+<li class="todo">⬜ EC2/ECS/EKS, RDS, ElastiCache, SQS, CloudWatch (concepts)</li>
+</ul></div></details>
+
+<details><summary><span class="num">9</span>Observability <span class="tag t-done">done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ 3 pillars: Logs (what happened) + Metrics (how healthy) + Traces (request journey)</li>
+<li class="done">✅ Tools: Sentry (errors), New Relic (APM), ELK (log search)</li>
+<li class="done">✅ Debug flow: Metrics notice → Traces locate → Logs explain (shared traceId)</li>
+<li class="done">✅ Structured logging (JSON fields, searchable); "can't fix what you can't see"</li>
+</ul></div></details>
+
+<details><summary><span class="num">10</span>Security <span class="tag t-done">done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ AuthN vs AuthZ (who you are vs what you can do)</li>
+<li class="done">✅ Sessions vs JWT + refresh tokens (revoke trade-off)</li>
+<li class="done">✅ RBAC vs ACL + permissions map / authorize() middleware (built rbac-demo.js)</li>
+<li class="done">✅ Ownership check → IDOR (the settlements trap) — proved it in the demo</li>
+<li class="done">✅ SQL injection / XSS / CSRF prevention, bcrypt, secrets, least privilege</li>
+</ul></div></details>
+
+<details><summary><span class="num">11</span>System Design <span class="tag t-done">covered</span></summary>
+<div class="body"><ul>
+<li class="done">✅ Order-sync system (event-driven + queue + idempotency)</li>
+<li class="done">✅ Read-heavy content platform (CDN + cache + replicas)</li>
+<li class="done">✅ The framework: clarify → shape → flow → deep-dive → trade-off</li>
+<li class="todo">⬜ Practice: chat, notification, URL shortener, rate limiter</li>
+</ul></div></details>
+
+<details><summary><span class="num">12</span>AI-Native Backend <span class="tag t-done">done</span></summary>
+<div class="body"><ul>
+<li class="done">✅ RAG (retrieve → augment → generate), embeddings, cosine similarity</li>
+<li class="done">✅ Vector DB concept (their VibeCheck / vector DB layer)</li>
+<li class="done">✅ Resilient AI service (caching, timeout, fallback) — built it</li>
+<li class="core">★ This is your differentiator — "backend + AI-native engineer"</li>
+</ul></div></details>
+
+<div class="tip">🎯 <b>For Tuesday:</b> Done → Fundamentals, DBs, Caching, Async, Real-time, Scaling, Docker, AWS, System Design, AI.<br>
+Learn next → <b>Observability (#9)</b> + <b>Security/ACL (#10)</b> + <b>Kubernetes hands-on (#7)</b>. Plus keep doing coding reps.</div>
+
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order-Sync — System Architecture</title>
+<style>
+  :root{--bg:#f5f7fa;--panel:#fff;--ink:#1e293b;--muted:#64748b;--line:#cbd5e1;
+        --blue:#2563eb;--green:#059669;--amber:#d97706;--red:#dc2626;--violet:#7c3aed;--cyan:#0891b2;}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink);}
+  .wrap{max-width:1000px;margin:0 auto;padding:38px 24px 90px;}
+  h1{font-size:1.8rem;font-weight:800;letter-spacing:-.02em;margin:0 0 4px;}
+  .lede{color:var(--muted);max-width:660px;margin:0 0 26px;}
+
+  .flow{display:flex;flex-direction:column;align-items:center;gap:0;}
+  .row{display:flex;gap:16px;justify-content:center;align-items:stretch;flex-wrap:wrap;width:100%;}
+  .box{background:var(--panel);border:1.5px solid var(--line);border-radius:12px;padding:12px 16px;
+       min-width:150px;text-align:center;box-shadow:0 1px 3px rgba(15,23,42,.05);position:relative;}
+  .box .t{font-weight:700;font-size:.92rem;}
+  .box .s{font-size:.75rem;color:var(--muted);margin-top:3px;line-height:1.35;}
+  .box .tag{position:absolute;top:-9px;right:10px;font-size:.65rem;font-weight:700;color:#fff;
+            padding:2px 7px;border-radius:10px;}
+  .b-blue{border-color:#bfdbfe;background:#eff6ff} .b-blue .tag{background:var(--blue)}
+  .b-green{border-color:#a7f3d0;background:#ecfdf5} .b-green .tag{background:var(--green)}
+  .b-amber{border-color:#fde68a;background:#fffbeb} .b-amber .tag{background:var(--amber)}
+  .b-violet{border-color:#ddd6fe;background:#f5f3ff} .b-violet .tag{background:var(--violet)}
+  .b-cyan{border-color:#a5f3fc;background:#ecfeff} .b-cyan .tag{background:var(--cyan)}
+  .b-red{border-color:#fecaca;background:#fef2f2} .b-red .tag{background:var(--red)}
+
+  .down{width:2px;height:26px;background:var(--line);position:relative;margin:2px 0;}
+  .down::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+               border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--line);}
+  .down .lab{position:absolute;left:10px;top:50%;transform:translateY(-50%);white-space:nowrap;
+             font-size:.72rem;color:var(--muted);background:var(--bg);padding:0 5px;}
+
+  .callout{margin-top:34px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:720px){.callout{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px;}
+  .card h3{margin:0 0 6px;font-size:.92rem;color:var(--violet);}
+  .card p{margin:0;font-size:.84rem;color:#334155;line-height:1.5;}
+  .card .k{font-weight:700;color:var(--ink);}
+  code{background:#eef2f7;padding:1px 6px;border-radius:5px;font-family:"SF Mono",Menlo,monospace;font-size:.8em;}
+  .legend{font-size:.8rem;color:var(--muted);margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Order-Sync — System Architecture</h1>
+  <p class="lede">Sync orders from multiple marketplaces into our platform, kept consistent. Event-driven pipeline: ingest → queue → workers → source-of-truth DB → cache for fast reads.</p>
+
+  <div class="flow">
+
+    <!-- sources -->
+    <div class="row">
+      <div class="box b-blue"><span class="tag">SOURCE</span><div class="t">Amazon</div><div class="s">webhook / poll</div></div>
+      <div class="box b-blue"><span class="tag">SOURCE</span><div class="t">Flipkart</div><div class="s">webhook / poll</div></div>
+      <div class="box b-blue"><span class="tag">SOURCE</span><div class="t">Own storefront</div><div class="s">webhook / poll</div></div>
+    </div>
+
+    <div class="down"><span class="lab">order events (may duplicate / arrive out of order)</span></div>
+
+    <!-- ingest -->
+    <div class="row">
+      <div class="box b-green"><span class="tag">API</span><div class="t">Ingest API</div><div class="s">validate · assign idempotency key (order_id) · ACK fast</div></div>
+    </div>
+
+    <div class="down"><span class="lab">enqueue (don't process inline)</span></div>
+
+    <!-- queue -->
+    <div class="row">
+      <div class="box b-amber"><span class="tag">QUEUE</span><div class="t">Message Queue</div><div class="s">Kafka / SQS / BullMQ · absorbs spikes · decouples</div></div>
+      <div class="box b-red"><span class="tag">SAFETY</span><div class="t">Dead-Letter Queue</div><div class="s">failed after retries → park + alert</div></div>
+    </div>
+
+    <div class="down"><span class="lab">consume</span></div>
+
+    <!-- workers -->
+    <div class="row">
+      <div class="box b-violet"><span class="tag">WORKER</span><div class="t">Sync Workers (N)</div>
+        <div class="s">idempotency check · version/timestamp guard · state-machine transition · retry w/ backoff</div></div>
+    </div>
+
+    <div class="down"><span class="lab">write (source of truth)</span></div>
+
+    <!-- storage -->
+    <div class="row">
+      <div class="box b-green"><span class="tag">DB</span><div class="t">Postgres</div><div class="s">orders · source of truth · unique(order_id) · indexed</div></div>
+      <div class="box b-cyan"><span class="tag">CACHE</span><div class="t">Redis</div><div class="s">hot order-status reads · cache-aside + TTL · invalidate on write</div></div>
+    </div>
+
+    <div class="down"><span class="lab">read path</span></div>
+
+    <!-- read api / clients -->
+    <div class="row">
+      <div class="box b-green"><span class="tag">API</span><div class="t">Read / Status API</div><div class="s">check Redis → fall back to Postgres</div></div>
+    </div>
+    <div class="down"></div>
+    <div class="row">
+      <div class="box b-blue"><span class="tag">CLIENT</span><div class="t">Dashboard / Vendor app / Support</div></div>
+    </div>
+
+  </div>
+
+  <!-- side systems -->
+  <p class="legend">Plus, running alongside the pipeline:</p>
+  <div class="row" style="margin-top:6px;">
+    <div class="box b-cyan"><span class="tag">SYNC</span><div class="t">Reconciliation Job</div><div class="s">periodic: compare our DB vs marketplace → pull anything missed</div></div>
+    <div class="box b-amber"><span class="tag">OBSERVE</span><div class="t">Observability</div><div class="s">logs (ELK) · metrics (New Relic) · traces · Sentry alerts</div></div>
+  </div>
+
+  <!-- the hard parts -->
+  <div class="callout">
+    <div class="card"><h3>① Duplicates</h3><p><span class="k">Threat:</span> same order webhook fires 2–3×. <span class="k">Fix:</span> <code>order_id</code> as idempotency key + <code>UNIQUE</code> constraint → processed once.</p></div>
+    <div class="card"><h3>② Out-of-order updates</h3><p><span class="k">Threat:</span> "confirmed" arrives after "delivered". <span class="k">Fix:</span> version/timestamp — apply only if newer; ignore stale.</p></div>
+    <div class="card"><h3>③ Lost updates</h3><p><span class="k">Threat:</span> a message is dropped. <span class="k">Fix:</span> retries + backoff → dead-letter queue → periodic reconciliation.</p></div>
+    <div class="card"><h3>④ Illegal transitions</h3><p><span class="k">Threat:</span> cancel an already-delivered order. <span class="k">Fix:</span> state machine — reject illegal moves → route to refund/return flow.</p></div>
+    <div class="card"><h3>⑤ Read scale</h3><p><span class="k">Threat:</span> status pages hammer the DB. <span class="k">Fix:</span> Redis cache-aside + TTL, invalidate on write; read replicas if needed.</p></div>
+    <div class="card"><h3>⑥ Spikes / marketplace down</h3><p><span class="k">Threat:</span> flash-sale burst, source API flaky. <span class="k">Fix:</span> queue absorbs spikes; workers scale out; retry with backoff.</p></div>
+  </div>
+
+  <div class="card" style="margin-top:16px;border-color:#a7f3d0;background:#f0fdf4;">
+    <h3 style="color:#047857;">🗣️ How to present this in the interview</h3>
+    <p><span class="k">1. Clarify:</span> how many marketplaces, volume, webhook vs poll, latency needs?
+       <span class="k">2. Shape:</span> "event-driven — ingest, queue, workers, Postgres as source of truth, Redis for reads."
+       <span class="k">3. Flow:</span> walk left→right as above.
+       <span class="k">4. Deep-dive:</span> the 6 hard parts (idempotency, versioning, DLQ, state machine).
+       <span class="k">5. Trade-offs + business:</span> "consistency matters more than instant sync — a wrong order status loses trust; queue + reconciliation guarantees we never lose an order."</p>
+  </div>
+
+</div>
+</body>
+</html>

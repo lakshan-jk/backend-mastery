@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backend Patterns — Flow Diagrams</title>
+<style>
+  :root{
+    --bg:#f5f7fa; --panel:#ffffff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0;
+    --green:#059669; --green-bg:#ecfdf5; --green-line:#a7f3d0;
+    --red:#dc2626; --red-bg:#fef2f2; --red-line:#fecaca;
+    --blue:#2563eb; --blue-bg:#eff6ff; --violet:#7c3aed;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,sans-serif;margin:0;background:var(--bg);
+       color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 100px;}
+  header{margin-bottom:8px;}
+  h1{font-size:1.9rem;font-weight:800;letter-spacing:-.02em;margin:0 0 6px;}
+  .lede{color:var(--muted);font-size:1.02rem;max-width:680px;margin:0;}
+  .legend{display:flex;gap:16px;margin:20px 0 8px;flex-wrap:wrap;font-size:.86rem;}
+  .legend span{display:inline-flex;align-items:center;gap:7px;color:var(--muted);}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .dot.g{background:var(--green)} .dot.r{background:var(--red)}
+
+  section{margin-top:40px;}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:4px;}
+  .sec-num{font-size:.8rem;font-weight:700;color:#fff;background:var(--violet);
+           width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none;}
+  h2{font-size:1.22rem;font-weight:750;margin:0;letter-spacing:-.01em;}
+  .sec-sub{color:var(--muted);font-size:.9rem;margin:2px 0 0 38px;}
+
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0 0;}
+  @media(max-width:760px){.pair{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;
+        box-shadow:0 1px 3px rgba(15,23,42,.04);}
+  .card.good{border-top:4px solid var(--green);}
+  .card.bad{border-top:4px solid var(--red);}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:700;
+         padding:3px 10px;border-radius:20px;margin-bottom:14px;letter-spacing:.01em;}
+  .badge.good{background:var(--green-bg);color:var(--green);}
+  .badge.bad{background:var(--red-bg);color:var(--red);}
+
+  /* flow nodes */
+  .flow{display:flex;flex-direction:column;gap:0;}
+  .node{border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:.86rem;
+        background:#fbfcfe;position:relative;}
+  .node .lbl{font-weight:650;}
+  .node .meta{color:var(--muted);font-size:.78rem;margin-top:1px;}
+  .node.ok{border-color:var(--green-line);background:var(--green-bg);}
+  .node.err{border-color:var(--red-line);background:var(--red-bg);}
+  .node.hl{border-color:#c4b5fd;background:#f5f3ff;}
+  .arrow{width:2px;height:16px;background:var(--line);margin:0 auto;position:relative;}
+  .arrow::after{content:"";position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
+                border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--line);}
+  .arrow.lbl-arrow{height:22px;}
+  .arrow .a-tag{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:.72rem;
+                color:var(--muted);white-space:nowrap;background:var(--panel);padding:0 5px;}
+  .split{display:flex;gap:10px;}
+  .split .node{flex:1;}
+
+  .fix{margin-top:14px;background:var(--blue-bg);border:1px solid #bfdbfe;border-radius:10px;
+       padding:11px 14px;font-size:.86rem;color:#1e3a8a;}
+  .fix b{color:#1d4ed8;}
+  code{background:#eef2f7;padding:1px 6px;border-radius:5px;font-family:"SF Mono",Menlo,monospace;
+       font-size:.82em;color:#334155;}
+  .foot{margin-top:44px;padding:16px 18px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:12px;
+        font-size:.9rem;color:#115e59;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Backend Patterns — Flow Diagrams</h1>
+  <p class="lede">Each pattern shown two ways: the failure it prevents, and the correct flow that fixes it. Every green path has runnable proof in the repo.</p>
+  <div class="legend">
+    <span><i class="dot r"></i> What breaks without the pattern</span>
+    <span><i class="dot g"></i> The correct, resilient flow</span>
+  </div>
+</header>
+
+<!-- 1 CACHING -->
+<section>
+  <div class="sec-head"><span class="sec-num">1</span><h2>Caching — Cache-Aside</h2></div>
+  <p class="sec-sub">Serve hot reads from Redis; fall back to the DB and backfill on a miss.</p>
+  <div class="pair">
+    <div class="card bad">
+      <span class="badge bad">● Naive — miss never cached</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">GET /product/5</span></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">Query DB every time</span><div class="meta">~2000 ms, no backfill</div></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">Every request stays slow 🐢</span></div>
+      </div>
+    </div>
+    <div class="card good">
+      <span class="badge good">● Cache-aside</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">GET /product/5</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">check Redis</span></div>
+        <div class="split">
+          <div class="node ok"><span class="lbl">HIT</span><div class="meta">return · ~2 ms ⚡</div></div>
+          <div class="node"><span class="lbl">MISS → DB</span><div class="meta">~2000 ms</div></div>
+        </div>
+        <div class="arrow lbl-arrow"><span class="a-tag">on miss</span></div>
+        <div class="node hl"><span class="lbl">Store in Redis + TTL</span><div class="meta">next read is a fast HIT</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="fix"><b>Key step:</b> on a MISS, write the result back into Redis with a <b>TTL</b> — otherwise every request keeps hitting the DB.</div>
+</section>
+
+<!-- 2 STAMPEDE -->
+<section>
+  <div class="sec-head"><span class="sec-num">2</span><h2>Cache Stampede</h2></div>
+  <p class="sec-sub">A hot key expires and thousands of concurrent misses hammer the DB at once.</p>
+  <div class="pair">
+    <div class="card bad">
+      <span class="badge bad">● No protection</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">Hot key TTL expires</span></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">10,000 requests miss together</span></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">10,000 DB queries at once</span></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">Database crashes 💥</span></div>
+      </div>
+    </div>
+    <div class="card good">
+      <span class="badge good">● Lock / single-flight</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">Hot key TTL expires</span></div>
+        <div class="arrow"></div>
+        <div class="node hl"><span class="lbl">First request acquires lock</span><div class="meta">others wait ~50 ms</div></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">rebuild once</span></div>
+        <div class="node ok"><span class="lbl">Cache refilled → all read it ⚡</span><div class="meta">DB got 1 query, not 10,000</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="fix"><b>Options:</b> lock / single-flight, <b>stale-while-revalidate</b>, <b>jittered TTLs</b> (don't expire together), and <b>pre-warm</b> before a known spike.</div>
+</section>
+
+<!-- 3 IDEMPOTENCY -->
+<section>
+  <div class="sec-head"><span class="sec-num">3</span><h2>Idempotency — Payments</h2></div>
+  <p class="sec-sub">Retries and duplicate webhooks must never double-charge.</p>
+  <div class="pair">
+    <div class="card bad">
+      <span class="badge bad">● No idempotency key</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">3 clicks + 2 webhooks</span><div class="meta">5 requests, one payment</div></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">chargeCard() runs 5×</span></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">₹25,000 charged 😱</span></div>
+      </div>
+    </div>
+    <div class="card good">
+      <span class="badge good">● order_id key + atomic claim</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">5 requests · same order_id</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">claim (SET NX)</span></div>
+        <div class="split">
+          <div class="node ok"><span class="lbl">1st wins</span><div class="meta">charges once</div></div>
+          <div class="node"><span class="lbl">other 4</span><div class="meta">return saved result</div></div>
+        </div>
+        <div class="arrow"></div>
+        <div class="node ok"><span class="lbl">₹5,000 charged once 💰</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="fix"><b>Client</b> reuses the same key (order_id) on every retry; <b>server</b> claims it <b>atomically</b> (<code>SET NX</code> / DB unique constraint) so concurrent duplicates can't slip through. Proven: 5 concurrent → 1 charge.</div>
+</section>
+
+<!-- 4 OUT OF ORDER -->
+<section>
+  <div class="sec-head"><span class="sec-num">4</span><h2>Out-of-Order Updates</h2></div>
+  <p class="sec-sub">The network doesn't guarantee delivery order; a late update can overwrite a newer one.</p>
+  <div class="pair">
+    <div class="card bad">
+      <span class="badge bad">● No versioning</span>
+      <div class="flow">
+        <div class="node ok"><span class="lbl">"Delivered" arrives → saved</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">then, late</span></div>
+        <div class="node err"><span class="lbl">"Confirmed" arrives late</span><div class="meta">overwrites the status</div></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">DB shows "Confirmed" — wrong 😱</span></div>
+      </div>
+    </div>
+    <div class="card good">
+      <span class="badge good">● Version / timestamp</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">Each update carries a version</span><div class="meta">Confirmed(1) Shipped(2) Delivered(3)</div></div>
+        <div class="arrow"></div>
+        <div class="node ok"><span class="lbl">"Delivered"(3) → saved</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">1 &gt; 3 ? no</span></div>
+        <div class="node hl"><span class="lbl">"Confirmed"(1) late → ignored</span><div class="meta">stays "Delivered" 🎯</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="fix"><b>Rule:</b> attach a <b>version or timestamp</b> and <b>apply only if newer</b> than what's stored. A smaller number arriving late is old news — ignore it.</div>
+</section>
+
+<!-- 5 STATE MACHINE -->
+<section>
+  <div class="sec-head"><span class="sec-num">5</span><h2>Cancellation — State Machine</h2></div>
+  <p class="sec-sub">"Newer wins" isn't enough; some transitions must be illegal.</p>
+  <div class="pair">
+    <div class="card bad">
+      <span class="badge bad">● Version check alone</span>
+      <div class="flow">
+        <div class="node ok"><span class="lbl">Order = "Delivered" (3)</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">4 &gt; 3 → apply</span></div>
+        <div class="node err"><span class="lbl">"Cancelled" (4) applied</span></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">Cancelled after delivery 🍕❌</span></div>
+      </div>
+    </div>
+    <div class="card good">
+      <span class="badge good">● Allowed-transitions</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">Delivered → (final)</span><div class="meta">Cancelled → (final)</div></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">legal?</span></div>
+        <div class="node err" style="opacity:.9"><span class="lbl">"Cancel a delivered order" → NO</span></div>
+        <div class="arrow"></div>
+        <div class="node ok"><span class="lbl">Reject → refund/return flow ✅</span><div class="meta">flag for a human</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="fix"><b>Two gates:</b> <b>version</b> (is it newer?) <b>+ state machine</b> (is the transition legal?). Illegal ones are rejected and routed to reconciliation — never left to corrupt the status.</div>
+</section>
+
+<!-- 6 LOST UPDATES -->
+<section>
+  <div class="sec-head"><span class="sec-num">6</span><h2>Lost Updates</h2></div>
+  <p class="sec-sub">A webhook or message is dropped and the update never lands.</p>
+  <div class="pair">
+    <div class="card bad">
+      <span class="badge bad">● Fire-and-forget</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">Marketplace → webhook</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">network drop</span></div>
+        <div class="node err"><span class="lbl">Delivery fails silently</span></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">Order lost — paid, no record 😱</span></div>
+      </div>
+    </div>
+    <div class="card good">
+      <span class="badge good">● Retries · DLQ · reconciliation</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">Event → queue → worker</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">on failure</span></div>
+        <div class="node hl"><span class="lbl">Retry with backoff (3×)</span></div>
+        <div class="arrow"></div>
+        <div class="split">
+          <div class="node"><span class="lbl">Dead-letter queue</span><div class="meta">+ alert</div></div>
+          <div class="node ok"><span class="lbl">Reconcile job</span><div class="meta">sync vs source</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fix"><b>Layered safety:</b> <b>retries + backoff</b> → <b>dead-letter queue</b> (failures aren't lost) → periodic <b>reconciliation</b> that compares your DB against the source and pulls anything missed.</div>
+</section>
+
+<!-- 7 RBAC -->
+<section>
+  <div class="sec-head"><span class="sec-num">7</span><h2>Authorization — RBAC + Ownership</h2></div>
+  <p class="sec-sub">A role check alone lets a user reach another user's records (IDOR).</p>
+  <div class="pair">
+    <div class="card bad">
+      <span class="badge bad">● Role check only</span>
+      <div class="flow">
+        <div class="node ok"><span class="lbl">vendorA (role: vendor) ✅</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">GET /settlements/s2</span></div>
+        <div class="node err"><span class="lbl">"Is a vendor?" → yes</span><div class="meta">s2 belongs to vendorB</div></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">Returns vendorB's money 😱 (IDOR)</span></div>
+      </div>
+    </div>
+    <div class="card good">
+      <span class="badge good">● RBAC + ownership</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">authorize("settlement:view-own")</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">ownership</span></div>
+        <div class="node hl"><span class="lbl">s2.vendorId === vendorA ?</span><div class="meta">no</div></div>
+        <div class="arrow"></div>
+        <div class="node ok"><span class="lbl">403 — not your settlement 🔒</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="fix"><b>Two layers:</b> the <b>role</b> decides what actions are allowed; the <b>ownership check</b> restricts you to your own rows. Frontend hides for UX; the <b>backend enforces</b> for real.</div>
+</section>
+
+<!-- 8 ZERO DOWNTIME -->
+<section>
+  <div class="sec-head"><span class="sec-num">8</span><h2>Zero-Downtime Deployment</h2></div>
+  <p class="sec-sub">Ship new code without dropping a single request.</p>
+  <div class="pair">
+    <div class="card bad">
+      <span class="badge bad">● Restart everything at once</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">Deploy</span></div>
+        <div class="arrow"></div>
+        <div class="node err"><span class="lbl">Kill all instances</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">0 servers</span></div>
+        <div class="node err"><span class="lbl">Requests fail 💥 — lost orders</span></div>
+      </div>
+    </div>
+    <div class="card good">
+      <span class="badge good">● Rolling + graceful shutdown</span>
+      <div class="flow">
+        <div class="node"><span class="lbl">Start new instance</span></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">health check ✅</span></div>
+        <div class="node hl"><span class="lbl">Drain one old instance</span><div class="meta">server.close() — finish in-flight</div></div>
+        <div class="arrow lbl-arrow"><span class="a-tag">repeat</span></div>
+        <div class="node ok"><span class="lbl">Count never drops → 0 dropped ✅</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="fix"><b>Never all at once.</b> Rolling / blue-green / canary + <b>health checks</b> + <b>graceful shutdown</b> (<code>server.close()</code>) + backward-compatible migrations. Proven with PM2: zero dropped requests.</div>
+</section>
+
+<div class="foot">Every green path above has runnable proof in <code>~/backend-mastery/</code> — caching, idempotency-safe, rbac-demo, and zero-downtime. You don't just describe the pattern; you've built and tested it.</div>
+
+</div>
+</body>
+</html>

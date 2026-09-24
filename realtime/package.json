@@ -1,0 +1,13 @@
+{
+  "name": "realtime-practice",
+  "version": "1.0.0",
+  "description": "Hands-on WebSocket / Socket.IO practice to build real-time confidence",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}

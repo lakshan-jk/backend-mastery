@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Generation Agent — HLD + LLD</title>
+<style>
+  :root{--bg:#0f172a;--panel:#1e293b;--ink:#e2e8f0;--muted:#94a3b8;--line:#334155;
+        --blue:#38bdf8;--green:#34d399;--amber:#fbbf24;--violet:#a78bfa;--pink:#f472b6;--red:#f87171;}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.5;}
+  .wrap{max-width:960px;margin:0 auto;padding:36px 22px 90px;}
+  h1{font-size:1.7rem;font-weight:800;margin:0 0 4px;color:var(--blue);}
+  .lede{color:var(--muted);margin:0 0 8px;}
+  h2{font-size:1.15rem;margin:32px 0 8px;color:var(--violet);border-left:4px solid var(--violet);padding-left:10px;}
+
+  .flow{display:flex;flex-direction:column;align-items:center;gap:0;}
+  .node{background:var(--panel);border:1.5px solid var(--line);border-radius:11px;padding:11px 16px;text-align:center;min-width:210px;position:relative;}
+  .node .t{font-weight:700;font-size:.92rem;}
+  .node .s{font-size:.75rem;color:var(--muted);margin-top:2px;}
+  .node .tag{position:absolute;top:-9px;left:12px;font-size:.63rem;font-weight:700;color:#0f172a;padding:1px 8px;border-radius:9px;}
+  .b-blue{border-color:#0369a1;background:#082f49}.b-blue .tag{background:var(--blue)}
+  .b-green{border-color:#065f46;background:#052e1a}.b-green .tag{background:var(--green)}
+  .b-amber{border-color:#78350f;background:#3b1d02}.b-amber .tag{background:var(--amber)}
+  .b-violet{border-color:#5b21b6;background:#2e1065}.b-violet .tag{background:var(--violet)}
+  .b-pink{border-color:#9d174d;background:#4c0519}.b-pink .tag{background:var(--pink)}
+  .b-red{border-color:#991b1b;background:#450a0a}.b-red .tag{background:var(--red)}
+
+  .arrow{width:2px;height:22px;background:var(--line);position:relative;margin:2px 0;}
+  .arrow::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--line);}
+  .arrow .lab{position:absolute;left:9px;top:50%;transform:translateY(-50%);white-space:nowrap;font-size:.7rem;color:var(--muted);background:var(--bg);padding:0 5px;}
+  .workers{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:4px 0;}
+  .stores{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+
+  pre{background:#020617;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-family:"SF Mono",Menlo,monospace;font-size:.8rem;line-height:1.55;color:#cbd5e1;}
+  .kw{color:#c4b5fd}.cm{color:#64748b}.fn{color:#7dd3fc}.st{color:#86efac}
+  .patterns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  @media(max-width:640px){.patterns{grid-template-columns:1fr}}
+  .pat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-size:.85rem;}
+  .pat b{color:var(--amber);}
+  .pitch{background:#052e1a;border:1px solid #14532d;border-radius:12px;padding:14px 18px;margin-top:18px;color:#a7f3d0;font-size:.9rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎬 Video Generation Agent</h1>
+  <p class="lede">Agentic pipeline: plan → generate assets in parallel → stitch → deliver. Slow + GPU-heavy → async queue + workers.</p>
+
+  <h2>HLD — High-Level Design</h2>
+  <div class="flow">
+    <div class="node b-blue"><span class="tag">CLIENT</span><div class="t">Client / UI</div><div class="s">"generate a 30s product video"</div></div>
+    <div class="arrow"></div>
+    <div class="node b-green"><span class="tag">GATEWAY</span><div class="t">API Gateway</div><div class="s">auth · rate limit · validate</div></div>
+    <div class="arrow"></div>
+    <div class="node b-violet"><span class="tag">AGENT</span><div class="t">Orchestrator (agent brain)</div><div class="s">plans steps: script → voice → visuals → stitch</div></div>
+    <div class="arrow"><span class="lab">enqueue (async — don't block)</span></div>
+    <div class="node b-amber"><span class="tag">QUEUE</span><div class="t">Job Queue — Kafka / SQS</div><div class="s">decouple · absorb load · retry</div></div>
+    <div class="arrow"><span class="lab">consume</span></div>
+    <div class="workers">
+      <div class="node b-violet"><span class="tag">WORKER</span><div class="t">Script Worker</div><div class="s">LLM → scenes</div></div>
+      <div class="node b-violet"><span class="tag">WORKER</span><div class="t">Voice Worker</div><div class="s">TTS → audio</div></div>
+      <div class="node b-pink"><span class="tag">GPU</span><div class="t">Visual Worker</div><div class="s">diffusion (GPU pool)</div></div>
+      <div class="node b-violet"><span class="tag">WORKER</span><div class="t">Stitch Worker</div><div class="s">FFmpeg → MP4</div></div>
+    </div>
+    <div class="arrow"><span class="lab">store result</span></div>
+    <div class="stores">
+      <div class="node b-green"><span class="tag">STORE</span><div class="t">S3 (object store)</div><div class="s">video + assets</div></div>
+      <div class="node b-blue"><span class="tag">CDN</span><div class="t">CDN</div><div class="s">fast global delivery</div></div>
+    </div>
+    <div class="arrow"></div>
+    <div class="stores">
+      <div class="node b-green"><span class="tag">DB</span><div class="t">Postgres</div><div class="s">job metadata · status</div></div>
+      <div class="node b-red"><span class="tag">CACHE</span><div class="t">Redis</div><div class="s">status · dedup · rate limit</div></div>
+      <div class="node b-amber"><span class="tag">OBSERVE</span><div class="t">Observability</div><div class="s">render time · GPU cost</div></div>
+    </div>
+  </div>
+
+  <h2>LLD — Low-Level Design (inside the Orchestrator)</h2>
+  <pre><span class="cm">// one video request = a state machine</span>
+<span class="kw">class</span> <span class="fn">VideoJob</span> {
+  id; userId; prompt;
+  status: <span class="st">'queued'|'scripting'|'rendering'|'stitching'|'done'|'failed'</span>;
+  steps: Step[]; outputUrl?;
+  <span class="fn">advance</span>()  <span class="cm">// → next step</span>
+  <span class="fn">retry</span>() / <span class="fn">markFailed</span>(err)
+}
+
+<span class="cm">// Strategy pattern — each step is swappable</span>
+<span class="kw">interface</span> <span class="fn">Step</span> { <span class="fn">execute</span>(job): Promise&lt;Result&gt; }
+<span class="kw">class</span> <span class="fn">ScriptStep</span>  <span class="cm">// LLM</span>
+<span class="kw">class</span> <span class="fn">VoiceStep</span>   <span class="cm">// TTS</span>
+<span class="kw">class</span> <span class="fn">VisualStep</span>  <span class="cm">// diffusion, GPU</span>
+<span class="kw">class</span> <span class="fn">StitchStep</span>  <span class="cm">// FFmpeg</span>
+
+<span class="cm">// runs steps in order, handles failure</span>
+<span class="kw">class</span> <span class="fn">Orchestrator</span> {
+  <span class="kw">async</span> <span class="fn">run</span>(job) {
+    <span class="kw">for</span> (step <span class="kw">of</span> job.steps) {
+      r = <span class="kw">await</span> step.execute(job)
+      <span class="kw">if</span> (!r.ok) <span class="kw">return</span> job.markFailed(r.error)
+      job.advance()
+    }
+    job.status = <span class="st">'done'</span>
+  }
+}
+
+<span class="cm">// Adapter pattern — swap AI vendors freely</span>
+<span class="kw">interface</span> <span class="fn">LLMProvider</span> { generate(prompt) }
+<span class="kw">interface</span> <span class="fn">TTSProvider</span> { synthesize(text) }
+<span class="kw">class</span> <span class="fn">OpenAIProvider</span> / <span class="fn">ElevenLabsTTS</span> ...</pre>
+
+  <div class="patterns">
+    <div class="pat"><b>Strategy</b> — each Step swappable (script/voice/visual/stitch)</div>
+    <div class="pat"><b>Adapter</b> — Provider interfaces → swap OpenAI/Anthropic/ElevenLabs</div>
+    <div class="pat"><b>State machine</b> — VideoJob.status transitions</div>
+    <div class="pat"><b>SOLID</b> — one worker = one responsibility (SRP); providers open to extend (OCP)</div>
+  </div>
+
+  <div class="pitch">
+    🗣️ <b>60-sec pitch:</b> "It's an agentic pipeline — the orchestrator plans script → voice → visuals → stitch, each an async worker off a queue since generation is slow and GPU-heavy. Steps use the <b>Strategy pattern</b> so they're swappable, and an <b>Adapter</b> layer swaps AI vendors without touching the pipeline. VideoJob is a <b>state machine</b> with idempotency so we never re-render the same job. Videos go to S3, served via CDN; GPU workers autoscale separately since they're the costly part; observability tracks render time and GPU cost."
+  </div>
+</div>
+</body>
+</html>
