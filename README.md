@@ -46,8 +46,13 @@ Most demos print the port and example `curl` commands at the top of the file.
 
 ---
 
-## Philosophy
+## Repository layout
 
-> Learn the concept → **build it yourself** → explain the trade-offs.
+```
+caching/          idempotency/      rate-limiter/     feature-flags/
+url-shortener/    security/         zero-downtime/    rag-node/
+realtime/         aws/              interview-practice/
+notes/            .github/workflows/
+```
 
-Every demo favors clarity over cleverness, and each one names the failure it prevents and the trade-off it makes.
+Each demo folder is independent, with its own `package.json`. Design notes and diagrams are in `notes/`.
