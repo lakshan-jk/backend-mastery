@@ -11,9 +11,6 @@ class LRUCache {
 
   get(key) {
     // TODO:
-    // 1. if key not in map -> return -1
-    // 2. read the value, delete the key, re-set it (moves it to "most recent")
-    // 3. return the value
     if (!this.map.has(key)) {
       return -1;
     }
