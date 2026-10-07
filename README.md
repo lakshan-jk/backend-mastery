@@ -17,6 +17,22 @@
 
 ---
 
+## 🤔 Why does this exist?
+
+Because *"yeah, I know how caching works"* and *"I built cache-aside with a graceful Redis fallback and watched it survive a Redis outage"* are two **very** different sentences. 😅
+
+Knowing a concept and having it in your fingers are not the same thing — so this is my **hands-on playground**: the backend patterns every engineer should have muscle memory for, built small and runnable so I keep them sharp (and pick up new ones along the way). Theory fades; `curl`-ing your own idempotency guard at 2am sticks.
+
+### 👀 Who's this for?
+
+- **Brushing up before an interview?** Each folder is a self-contained demo — skim the code, run it, re-derive the trade-offs. Great for *"wait, how does a token bucket actually work again?"* moments.
+- **Learning a topic fresh?** Start it, break it, fix it. Every demo prints its own `curl` commands — poke at it until it clicks.
+- **Just curious?** Same deal. No slideware, no *"trust me, it works."* Real, runnable code that you can watch (not) fall over. 🔥
+
+Pick a folder, run it, learn by doing. That's the whole idea.
+
+---
+
 ## 📦 What's inside
 
 Each pattern is a **self-contained, runnable** demo — not pseudocode. Start it, hit the endpoints, read the trade-offs.
