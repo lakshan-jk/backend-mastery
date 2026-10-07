@@ -1,3 +1,6 @@
 node_modules/
 .DS_Store
 npm-debug.log*
+
+# Visual study notes (kept local, not published — they skew the repo language stats)
+notes/*.html
